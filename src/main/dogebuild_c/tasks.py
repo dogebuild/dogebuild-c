@@ -1,6 +1,6 @@
 from subprocess import check_call
 
-from dogebuild.plugin.interfaces import Task
+from dogebuild.plugin_old.interfaces import Task
 
 
 class CompileTask(Task):

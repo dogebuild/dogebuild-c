@@ -1,22 +1,22 @@
-from dogebuild.plugin.interfaces import Plugin
-from dogebuild_c.tasks import CompileTask
+from dogebuild.plugins import DogePlugin, DagContext
 
 
-class CPlugin(Plugin):
-    def __init__(
-            self,
-            sources,
-            out_name=None,
-    ):
-        self.sources = sources
-        self.out_name = out_name
+DAG_CONTEXT = DagContext()
 
-    def get_active_tasks(self):
-        return [
-            CompileTask(
-                sources=self.sources,
-                out_file=self.out_name,
-            ),
-        ]
 
+class CPlugin(DogePlugin):
+    NAME = 'c-plugin'
+
+    def __init__(self):
+        super(CPlugin, self).__init__(
+            {
+                'compile': self.compile,
+            },
+            DAG_CONTEXT
+        )
+
+    @DAG_CONTEXT.depends_on('nothong')
+    def compile(self) -> int:
+        print('hello from c-plugin')
+        return 1
 
