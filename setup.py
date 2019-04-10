@@ -15,6 +15,9 @@ setup(
         '': 'src/main',
     },
     test_suite='tests',
+    install_requires=[
+        'dogebuild',
+    ],
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Environment :: Console',
