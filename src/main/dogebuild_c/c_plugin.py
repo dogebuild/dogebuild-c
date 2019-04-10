@@ -56,7 +56,8 @@ class CPlugin(DogePlugin):
             if code:
                 return code
 
-            command = ['ar', '-rcs', CPlugin._resolve_out_name(self.type, self.out), *o_files]
+            out_file = os.path.join(self.build_dir, CPlugin._resolve_out_name(self.type, self.out))
+            command = ['ar', '-rcs', out_file, *o_files]
 
             return call(command)
 
@@ -86,18 +87,22 @@ class CPlugin(DogePlugin):
             if code:
                 return code
 
-            command = ['gcc', '-shared', *o_files, '-o', CPlugin._resolve_out_name(self.type, self.out)]
+            out_file = os.path.join(self.build_dir, CPlugin._resolve_out_name(self.type, self.out))
+            command = ['gcc', '-shared', *o_files, '-o', out_file]
 
             return call(command)
+
         elif self.type is BinaryType.EXECUTABLE:
-            command = ['gcc', '-o', CPlugin._resolve_out_name(self.type, self.out), *self.src]
+            out_file = os.path.join(self.build_dir, CPlugin._resolve_out_name(self.type, self.out))
+            command = ['gcc', *self.src, '-o', out_file]
             return call(command)
         else:
             raise NotImplementedError('Unknown type {}'.format(self.type))
 
     def run(self) -> int:
         if self.type is BinaryType.EXECUTABLE:
-            command = ['./' + CPlugin._resolve_out_name(self.type, self.out)]
+            out_file = os.path.join('.', self.build_dir, CPlugin._resolve_out_name(self.type, self.out))
+            command = [out_file]
             return call(command)
         else:
             print('Type {} is not executable'.format(self.type))
