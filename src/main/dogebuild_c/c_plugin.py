@@ -2,6 +2,7 @@ from subprocess import call
 from enum import Enum, unique, auto
 from dogebuild.plugins import DogePlugin
 import os
+import shutil
 
 
 @unique
@@ -16,13 +17,17 @@ class CPlugin(DogePlugin):
 
     def __init__(self, **kwargs):
         super(CPlugin, self).__init__()
+
         self.add_task('compile', self.compile, phase='compile')
 
         self.add_task('run', self.run, phase='run')
         self.add_dependency('run', ['compile'])
 
+        self.add_task('clean', self.clean, phase='clean')
+
         self.out = kwargs.get('out', 'a')
         self.src = kwargs.get('src')
+        self.headers = kwargs.get('headers', [])
         self.type = kwargs.get('type', BinaryType.STATIC_LIBRARY)
         self.build_dir = kwargs.get('build_dir', 'build')
 
@@ -58,8 +63,19 @@ class CPlugin(DogePlugin):
 
             out_file = os.path.join(self.build_dir, CPlugin._resolve_out_name(self.type, self.out))
             command = ['ar', '-rcs', out_file, *o_files]
+            code = call(command)
+            if code:
+                return code
 
-            return call(command)
+            for header in self.headers:
+                file_path = os.path.join(self.build_dir, 'headers', header)
+                dir_path = os.path.dirname(file_path)
+                if not os.path.exists(dir_path):
+                    os.makedirs(dir_path)
+
+                shutil.copyfile(header, file_path)
+
+            return 0
 
         elif self.type is BinaryType.DYNAMIC_LIBRARY:
             command = ['gcc']
@@ -89,8 +105,19 @@ class CPlugin(DogePlugin):
 
             out_file = os.path.join(self.build_dir, CPlugin._resolve_out_name(self.type, self.out))
             command = ['gcc', '-shared', *o_files, '-o', out_file]
+            code = call(command)
+            if code:
+                return code
 
-            return call(command)
+            for header in self.headers:
+                file_path = os.path.join(self.build_dir, 'headers', header)
+                dir_path = os.path.dirname(file_path)
+                if not os.path.exists(dir_path):
+                    os.makedirs(dir_path)
+
+                shutil.copyfile(header, file_path)
+
+            return 0
 
         elif self.type is BinaryType.EXECUTABLE:
             out_file = os.path.join(self.build_dir, CPlugin._resolve_out_name(self.type, self.out))
@@ -107,6 +134,9 @@ class CPlugin(DogePlugin):
         else:
             print('Type {} is not executable'.format(self.type))
             return 1
+
+    def clean(self):
+        shutil.rmtree(self.build_dir)
 
     @staticmethod
     def _resolve_out_name(type: BinaryType, name: str):
