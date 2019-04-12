@@ -29,8 +29,11 @@ class CPlugin(DogePlugin):
 
         self.add_task('compile', self.compile, phase='compile')
 
+        self.add_task('link', self.link, phase='link')
+        self.add_dependency('link', ['compile'])
+
         self.add_task('run', self.run, phase='run')
-        self.add_dependency('run', ['compile'])
+        self.add_dependency('run', ['link'])
 
         self.add_task('clean', self.clean, phase='clean')
 
@@ -39,47 +42,25 @@ class CPlugin(DogePlugin):
         self.headers = kwargs.get('headers', [])
         self.type = kwargs.get('type', BinaryType.STATIC_LIBRARY)
         self.build_dir = kwargs.get('build_dir', 'build')
+        self.o_files = []
 
     def compile(self) -> int:
-        if not os.path.exists(self.build_dir):
-            os.mkdir(self.build_dir)
-
-        if self.type is BinaryType.STATIC_LIBRARY:
-            code, o_files = self._compile(self.build_dir, self.src, self.type)
-            if code:
-                return code
-
-            out_file = os.path.join(self.build_dir, CPlugin._resolve_out_name(self.type, self.out))
-            command = ['ar', '-rcs', out_file, *o_files]
-            code = call(command)
-            if code:
-                return code
-
-            self._copy_header(self.build_dir, self.headers)
-
-            return 0
-
-        elif self.type is BinaryType.DYNAMIC_LIBRARY:
-            code, o_files = self._compile(self.build_dir, self.src, self.type)
-            if code:
-                return code
-
-            out_file = os.path.join(self.build_dir, CPlugin._resolve_out_name(self.type, self.out))
-            command = ['gcc', '-shared', *o_files, '-o', out_file]
-            code = call(command)
-            if code:
-                return code
-
-            self._copy_header(self.build_dir, self.headers)
-
-            return 0
-
-        elif self.type is BinaryType.EXECUTABLE:
-            out_file = os.path.join(self.build_dir, CPlugin._resolve_out_name(self.type, self.out))
-            command = ['gcc', *self.src, '-o', out_file]
-            return call(command)
+        code, o_files = self._compile(self.build_dir, self.src, self.type)
+        if code:
+            return code
         else:
-            raise NotImplementedError('Unknown type {}'.format(self.type))
+            self.o_files = o_files
+            return 0
+
+    def link(self) -> int:
+        code = self._link(self.build_dir, self.o_files, self.out, self.type)
+        if code:
+            return code
+
+        if self.type in [BinaryType.STATIC_LIBRARY, BinaryType.DYNAMIC_LIBRARY]:
+            self._copy_header(self.build_dir, self.headers)
+
+        return 0
 
     def run(self) -> int:
         if self.type is BinaryType.EXECUTABLE:
@@ -95,6 +76,9 @@ class CPlugin(DogePlugin):
 
     @staticmethod
     def _compile(build_dir: str, src_list: List[str], type: BinaryType) -> Tuple[int, List[str]]:
+        if not os.path.exists(build_dir):
+            os.makedirs(build_dir)
+
         command = ['gcc']
 
         o_files = []
@@ -134,6 +118,26 @@ class CPlugin(DogePlugin):
             CPlugin._ensure_directory_exists(file_path)
 
             shutil.copyfile(header, file_path)
+
+    @staticmethod
+    def _link(build_dir: str, o_files: List[str], out_name: str, type: BinaryType) -> int:
+        if type is BinaryType.STATIC_LIBRARY:
+            out_file = os.path.join(build_dir, CPlugin._resolve_out_name(type, out_name))
+            command = ['ar', '-rcs', out_file, *o_files]
+            return call(command)
+
+        elif type is BinaryType.DYNAMIC_LIBRARY:
+            out_file = os.path.join(build_dir, CPlugin._resolve_out_name(type, out_name))
+            command = ['gcc', '-shared', *o_files, '-o', out_file]
+            return call(command)
+
+        elif type is BinaryType.EXECUTABLE:
+            out_file = os.path.join(build_dir, CPlugin._resolve_out_name(type, out_name))
+            command = ['gcc', *o_files, '-o', out_file]
+            return call(command)
+
+        else:
+            raise NotImplementedError('Unknown type {}'.format(type))
 
     @staticmethod
     def _resolve_out_name(type: BinaryType, name: str):
