@@ -11,9 +11,6 @@ setup(
     packages=find_packages(include=[
         'dogebuild*',
     ]),
-    package_dir={
-        '': 'src/main',
-    },
     test_suite='tests',
     install_requires=[
         'dogebuild',
