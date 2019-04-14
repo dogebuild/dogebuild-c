@@ -92,7 +92,7 @@ class CPlugin(DogePlugin):
             return call(command)
         else:
             print('Type {} is not executable'.format(self.type))
-            return 1
+            return 0
 
     def clean(self):
         shutil.rmtree(self.build_dir)

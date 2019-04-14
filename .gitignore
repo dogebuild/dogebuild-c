@@ -102,3 +102,6 @@ ENV/
 
 # Jetbrains IDE
 .idea/
+
+# Nox env
+.nox/
