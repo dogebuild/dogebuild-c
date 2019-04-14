@@ -7,6 +7,8 @@ import os
     'directory',
     [
         'simple_static_library',
+        'simple_dinamic_library',
+        'simple_executable',
     ]
 )
 def tests(session, directory):
