@@ -59,18 +59,21 @@ class GccWrapper:
 
         return 0, o_files
 
-    def copy_header(self, build_dir: str, header_list: List[str]):
+    def copy_header(self, build_dir: str, header_list: List[str]) -> Tuple[int, str]:
+        headers_dir = os.path.join(build_dir, 'headers')
         for header in header_list:
             base, extension = os.path.splitext(header)
             if extension not in self.ALLOWED_HEADER_EXTENSIONS:
                 print('Warn: not allowed header file extension {} in file {}'.format(extension, header))
 
-            file_path = os.path.join(build_dir, 'headers', header)
+            file_path = os.path.join(headers_dir, header)
             _ensure_directory_exists(file_path)
 
             shutil.copyfile(header, file_path)
 
-    def link(self, build_dir: str, o_files: List[str], out_name: str, type: BinaryType) -> Tuple[int, str]:
+        return 0, headers_dir
+
+    def link(self, build_dir: str, type: BinaryType, out_name: str, o_files: List[str], libs: List[str]) -> Tuple[int, str]:
         if type is BinaryType.STATIC_LIBRARY:
             out_file = os.path.join(build_dir, self._resolve_out_name(type, out_name))
             command = ['ar', '-rcs', out_file, *o_files]
@@ -84,6 +87,12 @@ class GccWrapper:
         elif type is BinaryType.EXECUTABLE:
             out_file = os.path.join(build_dir, self._resolve_out_name(type, out_name))
             command = ['gcc', *o_files, '-o', out_file]
+            for lib in libs:
+                ps = os.path.abspath(lib)
+                dr = os.path.dirname(ps)
+                bn = os.path.basename(ps)
+                command.append('-L{}'.format(dr))
+                command.append('-l:{}'.format(bn))
             return call(command), out_file
 
         else:
