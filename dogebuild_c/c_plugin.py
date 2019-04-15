@@ -41,7 +41,14 @@ class CPlugin(DogePlugin):
         self.test_exclude = kwargs.get('test_exclude', [])
 
     def compile(self) -> Tuple[int, Dict[str, List[str]]]:
-        code, o_files = self.gcc.compile(self.build_dir, self.type, self.src, [])
+        dependencies_headers = []
+        for dependency in self.dependencies + self.test_dependencies:
+            dependencies_headers += map(
+                lambda p: os.path.join(dependency.folder, p),
+                dependency.artifacts.get('headers_directory', [])
+            )
+
+        code, o_files = self.gcc.compile(self.build_dir, self.type, self.src, dependencies_headers)
         if code:
             return code, {}
         else:
@@ -83,7 +90,15 @@ class CPlugin(DogePlugin):
         return call([test_out_file]), {'test_executable': [test_out_file]}
 
     def link(self) -> Tuple[int, Dict[str, List[str]]]:
-        code, out_file = self.gcc.link(self.build_dir, self.type, self.out, self.o_files, [])
+        libs = []
+        if self.type is BinaryType.EXECUTABLE:
+            for dependency in self.dependencies + self.test_dependencies:
+                libs += map(
+                    lambda p: os.path.join(dependency.folder, p),
+                    dependency.artifacts.get('static_library', [])
+                )
+
+        code, out_file = self.gcc.link(self.build_dir, self.type, self.out, self.o_files, libs)
         if code:
             return code, {}
 

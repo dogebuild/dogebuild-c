@@ -107,5 +107,5 @@ ENV/
 .nox/
 
 # Integration tests build dirs
-/integration_tests/*/build
-/integration_tests/*/test_build
+/integration_tests/**/build
+/integration_tests/**/test_build

@@ -9,6 +9,7 @@ import os
         'simple_static_library',
         'simple_dinamic_library',
         'simple_executable',
+        'executable_with_dependency/main',
     ]
 )
 def tests(session, directory):
@@ -17,4 +18,4 @@ def tests(session, directory):
     session.install('.')
 
     session.cd(os.path.join('integration_tests', directory))
-    session.run('doge', 'run_plugin', 'run')
+    session.run('doge', 'run')
