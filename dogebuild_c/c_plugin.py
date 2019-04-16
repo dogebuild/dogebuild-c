@@ -124,7 +124,7 @@ class CPlugin(DogePlugin):
             command = [self.out_file]
             return call(command), {'executable': [self.out_file]}
         else:
-            print('Type {} is not executable'.format(self.type))
+            self.logger.warning('Type {} is not executable'.format(self.type))
             return 0, {}
 
     def clean(self) -> Tuple[int, Dict[str, List[str]]]:

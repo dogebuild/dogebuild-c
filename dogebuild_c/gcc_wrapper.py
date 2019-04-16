@@ -1,3 +1,4 @@
+from logging import getLogger
 from subprocess import call
 from enum import Enum, unique, auto
 import os
@@ -20,6 +21,9 @@ class GccWrapper:
     ALLOWED_HEADER_EXTENSIONS = [
         '.h',
     ]
+
+    def __init__(self):
+        self.logger = getLogger('GccWrapper')
 
     def compile(self, build_dir: str, type: BinaryType, src_list: List[str], headers_dirs: List[str]) -> Tuple[int, List[str]]:
         if not os.path.exists(build_dir):
@@ -45,7 +49,7 @@ class GccWrapper:
             if extension in GccWrapper.ALLOWED_CODE_EXTENSIONS:
                 src = base + '.o'
             else:
-                print('Warn: not allowed code file extension {} in file {}'.format(extension, src))
+                self.logger.warning('Warn: not allowed code file extension {} in file {}'.format(extension, src))
 
             file_path = os.path.join(build_dir, src)
             _ensure_directory_exists(file_path)
@@ -64,7 +68,7 @@ class GccWrapper:
         for header in header_list:
             base, extension = os.path.splitext(header)
             if extension not in self.ALLOWED_HEADER_EXTENSIONS:
-                print('Warn: not allowed header file extension {} in file {}'.format(extension, header))
+                self.logger.warning('Warn: not allowed header file extension {} in file {}'.format(extension, header))
 
             file_path = os.path.join(headers_dir, header)
             _ensure_directory_exists(file_path)
