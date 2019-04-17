@@ -1,9 +1,10 @@
 from subprocess import call
-from dogebuild.plugins import DogePlugin
 import os
 import shutil
 from typing import List, Tuple, Dict
 
+from dogebuild.plugins import DogePlugin
+from dogebuild.common import files
 from dogebuild_c.gcc_wrapper import GccWrapper, BinaryType
 
 
@@ -28,17 +29,22 @@ class CPlugin(DogePlugin):
 
         self.add_task('clean', self.clean, phase='clean')
 
+        self.src_dir = kwargs.get('src_dir', 'src')
+        self.src = files(self.src_dir, kwargs.get('src', []), kwargs.get('src_exclude'))
+        self.headers = files(self.src_dir, kwargs.get('headers', []), kwargs.get('headers_exclude'))
         self.out = kwargs.get('out', 'a')
         self.out_file = None
-        self.test_out = kwargs.get('test_out', 'test')
-        self.src = kwargs.get('src')
-        self.headers = kwargs.get('headers', [])
-        self.test_src = kwargs.get('test_src', [])
         self.type = kwargs.get('type', BinaryType.STATIC_LIBRARY)
         self.build_dir = kwargs.get('build_dir', 'build')
+
+        self.test_src_dir = kwargs.get('test_src_dir', 'test')
+        self.test_main_exclude = files(self.src_dir, kwargs.get('test_main_exclude', []))
+        self.test_src = files(self.test_src_dir, kwargs.get('test_src', []), kwargs.get('test_src_exclude'))
+        self.test_headers = files(self.test_src_dir, kwargs.get('test_headers', []), kwargs.get('test_headers_exclude'))
+        self.test_out = kwargs.get('test_out', 'test')
         self.test_build_dir = kwargs.get('test_build_dir', 'test_build')
+
         self.o_files = []
-        self.test_exclude = kwargs.get('test_exclude', [])
 
     def compile(self) -> Tuple[int, Dict[str, List[str]]]:
         dependencies_headers = []
@@ -76,7 +82,7 @@ class CPlugin(DogePlugin):
         # Fixme
         exclude_o_files = []
         for src in self.src:
-            if src in self.test_exclude:
+            if src in self.test_main_exclude:
                 base, extension = os.path.splitext(src)
                 if extension in GccWrapper.ALLOWED_CODE_EXTENSIONS:
                     src = base + '.o'
