@@ -1,6 +1,7 @@
 from logging import getLogger
-from subprocess import call
+from subprocess import run
 from enum import Enum, unique, auto
+from pathlib import Path
 import os
 import shutil
 from typing import List, Tuple
@@ -24,103 +25,122 @@ class GccWrapper:
 
     def __init__(self):
         self.logger = getLogger('GccWrapper')
+        self.binary = 'gcc'
 
-    def compile(self, build_dir: str, type: BinaryType, src_list: List[str], headers_dirs: List[str]) -> Tuple[int, List[str]]:
-        if not os.path.exists(build_dir):
-            os.makedirs(build_dir)
+    def compile(self, build_dir: Path, binary_type: BinaryType, source_files: List[Path], headers_dirs: List[Path]) -> Tuple[int, List[Path]]:
+        """
+        Compile all ALLOWED_CODE_EXTENSIONS files to corresponding .o files regarding directory structure
+        :param build_dir: root of build directory
+        :param binary_type: type of
+        :param source_files: list of source files
+        :param headers_dirs: list of headers directories
+        :return: Tuple of binary return code and list of .o files
+        """
+        build_dir.mkdir(exist_ok=True, parents=True)
 
         o_files = []
-
-        for src in src_list:
-            command = ['gcc', '-c']
+        for src in source_files:
+            command = [self.binary, '-c']
 
             for header_dir in headers_dirs:
-                command.append('-I{}'.format(header_dir))
+                command.append(f'-I{header_dir}')
 
-            if type is BinaryType.DYNAMIC_LIBRARY:
+            if binary_type is BinaryType.DYNAMIC_LIBRARY:
                 # Need to create macros in binary code.
                 # See https://renenyffenegger.ch/notes/development/languages/C-C-plus-plus/GCC/options/f/pic/index
                 command.append('-fPIC')
             command.append(src)
             command.append('-o')
 
-            base, extension = os.path.splitext(src)
-
-            if extension in GccWrapper.ALLOWED_CODE_EXTENSIONS:
-                src = base + '.o'
+            if src.suffix in GccWrapper.ALLOWED_CODE_EXTENSIONS:
+                src = src.with_suffix('o')
             else:
-                self.logger.warning('Warn: not allowed code file extension {} in file {}'.format(extension, src))
+                self.logger.warning(f'Not allowed code file extension .{src.suffix} of file {src}. File ignored.')
 
-            file_path = os.path.join(build_dir, src)
-            _ensure_directory_exists(file_path)
+            o_file_path = build_dir / src
+            o_file_path.parent.mkdir(exist_ok=True, parents=True)
 
-            command.append(file_path)
-            o_files.append(file_path)
+            command.append(str(o_file_path))
+            o_files.append(o_file_path)
 
-            code = call(command)
-            if code:
-                return code, []
+            result = run(command)
+            if result.returncode:
+                return result.returncode, []
 
         return 0, o_files
 
-    def copy_header(self, build_dir: str, header_list: List[str]) -> Tuple[int, str]:
-        headers_dir = os.path.join(build_dir, 'headers')
+    def copy_headers(self, build_dir: Path, header_list: List[Path]):
+        """
+        Copy headers with ALLOWED_HEADER_EXTENSIONS to build_dir subdirectory 'headers'.
+        Useful when building libraries
+        :param build_dir: build directory
+        :param header_list: list of headers to copy
+        :return: Tuple of ret
+        """
+        headers_dir = build_dir / 'headers'
         for header in header_list:
-            base, extension = os.path.splitext(header)
-            if extension not in self.ALLOWED_HEADER_EXTENSIONS:
-                self.logger.warning('Warn: not allowed header file extension {} in file {}'.format(extension, header))
+            if header.suffix not in self.ALLOWED_HEADER_EXTENSIONS:
+                self.logger.warning(f'Not allowed header file extension {header.suffix} of file {header}')
+                continue
 
-            file_path = os.path.join(headers_dir, header)
-            _ensure_directory_exists(file_path)
+            file_path = headers_dir / header
+            file_path.parent.mkdir(exist_ok=True, parents=True)
+            shutil.copyfile(str(header), str(file_path))
 
-            shutil.copyfile(header, file_path)
-
-        return 0, headers_dir
-
-    def link(self, build_dir: str, type: BinaryType, out_name: str, o_files: List[str], libs: List[str]) -> Tuple[int, str]:
-        if type is BinaryType.STATIC_LIBRARY:
-            out_file = os.path.join(build_dir, self._resolve_out_name(type, out_name))
+    def link(self, build_dir: Path, binary_type: BinaryType, out_name: str, o_files: List[Path], libraries: List[Path]) -> Tuple[int, Path]:
+        """
+        Link object files with libraries to file with out_name based name
+        :param build_dir:
+        :param binary_type:
+        :param out_name:
+        :param o_files:
+        :param libraries:
+        :return:
+        """
+        if binary_type is BinaryType.STATIC_LIBRARY:
+            out_file = build_dir / self._resolve_out_name(binary_type, out_name)
             command = ['ar', '-rcs', out_file, *o_files]
-            return call(command), out_file
+            result = run(command)
+            return result.returncode, out_file
 
-        elif type is BinaryType.DYNAMIC_LIBRARY:
-            out_file = os.path.join(build_dir, self._resolve_out_name(type, out_name))
-            command = ['gcc', '-shared', *o_files, '-o', out_file]
-            return call(command), out_file
+        elif binary_type is BinaryType.DYNAMIC_LIBRARY:
+            out_file = build_dir / self._resolve_out_name(binary_type, out_name)
+            command = [self.binary, '-shared', *o_files, '-o', out_file]
+            result = run(command)
+            return result.returncode, out_file
 
-        elif type is BinaryType.EXECUTABLE:
-            out_file = os.path.join(build_dir, self._resolve_out_name(type, out_name))
-            command = ['gcc', *o_files, '-o', out_file]
-            for lib in libs:
-                ps = os.path.abspath(lib)
-                dr = os.path.dirname(ps)
-                bn = os.path.basename(ps)
-                command.append('-L{}'.format(dr))
-                command.append('-l:{}'.format(bn))
+        elif binary_type is BinaryType.EXECUTABLE:
+            out_file = build_dir / self._resolve_out_name(binary_type, out_name)
+            command = [self.binary, *o_files, '-o', out_file]
+
+            library_dirs = set()
+            library_names = set()
+            for lib in libraries:
+                library_dirs.add(lib.resolve().parent)
+                library_names.add(lib.name)
+
+            for library_dir in library_dirs:
+                command.append(f'-L{library_dir}')
+            for library_name in library_names:
+                command.append(f'-l:{libray_name}')
             return call(command), out_file
 
         else:
-            raise NotImplementedError('Unknown type {}'.format(type))
+            raise NotImplementedError(f'Unknown type {binary_type}')
 
     @staticmethod
-    def _resolve_out_name(type: BinaryType, name: str):
+    def _resolve_out_name(binary_type: BinaryType, name: str):
         if os.name is 'posix':
-            if type is BinaryType.STATIC_LIBRARY:
+            if binary_type is BinaryType.STATIC_LIBRARY:
                 return 'lib' + name + '.a'
-            elif type is BinaryType.DYNAMIC_LIBRARY:
+            elif binary_type is BinaryType.DYNAMIC_LIBRARY:
                 return 'lib' + name + '.so'
-            elif type is BinaryType.EXECUTABLE:
+            elif binary_type is BinaryType.EXECUTABLE:
                 return name
         else:
-            if type is BinaryType.STATIC_LIBRARY:
+            if binary_type is BinaryType.STATIC_LIBRARY:
                 return 'lib' + name + '.lib'
-            elif type is BinaryType.DYNAMIC_LIBRARY:
+            elif binary_type is BinaryType.DYNAMIC_LIBRARY:
                 return 'lib' + name + '.dll'
-            elif type is BinaryType.EXECUTABLE:
+            elif binary_type is BinaryType.EXECUTABLE:
                 return name + '.exe'
-
-
-def _ensure_directory_exists(file_path: str):
-    dir_path = os.path.dirname(file_path)
-    if not os.path.exists(dir_path):
-        os.makedirs(dir_path)

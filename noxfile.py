@@ -2,7 +2,7 @@ import nox
 import os
 
 
-@nox.session(python=['3.6'])
+@nox.session()
 @nox.parametrize(
     'directory',
     [

@@ -16,18 +16,11 @@ class CPlugin(DogePlugin):
 
         self.gcc = GccWrapper()
 
-        self.add_task('compile', self.compile, phase='sources')
-
-        self.add_task('test', self.test, phase='test')
-        self.add_dependency('test', ['compile'])
-
-        self.add_task('link', self.link, phase='build')
-        self.add_dependency('link', ['test'])
-
-        self.add_task('run', self.run, phase='run')
-        self.add_dependency('run', ['link'])
-
-        self.add_task('clean', self.clean, phase='clean')
+        self.add_task(self.compile, phase='sources')
+        self.add_task(self.test, phase='test', depends=['compile'])
+        self.add_task(self.link, phase='build', depends=['test'])
+        self.add_task(self.run, phase='run', depends=['link'])
+        self.add_task(self.clean, phase='clean')
 
         self.src_dir = kwargs.get('src_dir', 'src')
         self.src = files(self.src_dir, kwargs.get('src', []), kwargs.get('src_exclude'))
@@ -44,8 +37,6 @@ class CPlugin(DogePlugin):
         self.test_out = kwargs.get('test_out', 'test')
         self.test_build_dir = kwargs.get('test_build_dir', 'test_build')
 
-        self.o_files = []
-
     def compile(self) -> Tuple[int, Dict[str, List[str]]]:
         dependencies_headers = []
         for dependency in self.dependencies + self.test_dependencies:
@@ -58,10 +49,9 @@ class CPlugin(DogePlugin):
         if code:
             return code, {}
         else:
-            self.o_files = o_files
             return 0, {'o_files': o_files}
 
-    def test(self) -> Tuple[int, Dict[str, List[str]]]:
+    def test(self, o_files) -> Tuple[int, Dict[str, List[str]]]:
         if len(self.test_src) == 0:
             return 0, {}
 
@@ -89,7 +79,7 @@ class CPlugin(DogePlugin):
                 file_path = os.path.join(self.build_dir, src)
                 exclude_o_files.append(file_path)
 
-        code, test_out_file = self.gcc.link(self.test_build_dir, BinaryType.EXECUTABLE, self.test_out, list(set(self.o_files) - set(exclude_o_files)) + test_o_files, dependencies_library)
+        code, test_out_file = self.gcc.link(self.test_build_dir, BinaryType.EXECUTABLE, self.test_out, list(set(o_files) - set(exclude_o_files)) + test_o_files, dependencies_library)
         if code:
             return code, {}
 
@@ -125,7 +115,7 @@ class CPlugin(DogePlugin):
 
         return 0, dict(artifact, headers_directory=[headers_directory])
 
-    def run(self) -> Tuple[int, Dict[str, List[str]]]:
+    def run(self, executable) -> Tuple[int, Dict[str, List[str]]]:
         if self.type is BinaryType.EXECUTABLE:
             command = [self.out_file]
             return call(command), {'executable': [self.out_file]}

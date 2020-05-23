@@ -1,5 +1,5 @@
 from dogebuild_c.c_plugin import CPlugin, BinaryType
-from dogebuild.dependencies import dependencies, folder
+from dogebuild import dependencies, folder
 
 dependencies(
     folder('../dependency')
