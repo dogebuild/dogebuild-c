@@ -1,16 +1,16 @@
+from pathlib import Path
+
 from dogebuild_c.c_plugin import CPlugin
 
 CPlugin(
-    out='helloworlder',
-    src_dir='.',
+    out_name='helloworlder',
     src=[
-        'helloworlder.c',
+        Path('helloworlder.c'),
     ],
     headers=[
-        'helloworlder.h',
+        Path('helloworlder.h'),
     ],
-    test_src_dir='.',
     test_src=[
-        'test.c',
+        Path('test.c'),
     ]
 )

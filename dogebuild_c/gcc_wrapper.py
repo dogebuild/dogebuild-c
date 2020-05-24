@@ -53,7 +53,7 @@ class GccWrapper:
             command.append('-o')
 
             if src.suffix in GccWrapper.ALLOWED_CODE_EXTENSIONS:
-                src = src.with_suffix('o')
+                src = src.with_suffix('.o')
             else:
                 self.logger.warning(f'Not allowed code file extension .{src.suffix} of file {src}. File ignored.')
 
@@ -122,15 +122,16 @@ class GccWrapper:
             for library_dir in library_dirs:
                 command.append(f'-L{library_dir}')
             for library_name in library_names:
-                command.append(f'-l:{libray_name}')
-            return call(command), out_file
+                command.append(f'-l:{library_name}')
+            result = run(command)
+            return result.returncode, out_file
 
         else:
             raise NotImplementedError(f'Unknown type {binary_type}')
 
     @staticmethod
     def _resolve_out_name(binary_type: BinaryType, name: str):
-        if os.name is 'posix':
+        if os.name == 'posix':
             if binary_type is BinaryType.STATIC_LIBRARY:
                 return 'lib' + name + '.a'
             elif binary_type is BinaryType.DYNAMIC_LIBRARY:

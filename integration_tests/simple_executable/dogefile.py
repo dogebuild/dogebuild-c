@@ -1,21 +1,22 @@
+from pathlib import  Path
+
 from dogebuild_c.c_plugin import CPlugin, BinaryType
 
+
 CPlugin(
-    type=BinaryType.EXECUTABLE,
-    out='helloworlder',
-    src_dir='.',
+    binary_type=BinaryType.EXECUTABLE,
+    out_name='helloworlder',
     src=[
-        'helloworlder.c',
-        'main.c',
+        Path('helloworlder.c'),
+        Path('main.c'),
     ],
     headers=[
-        'helloworlder.h',
+        Path('helloworlder.h'),
     ],
-    test_src_dir='.',
     test_src=[
-        'test.c',
+        Path('test.c'),
     ],
-    test_main_exclude=[
-        'main.c',
+    test_src_exclude=[
+        Path('main.c'),
     ],
 )

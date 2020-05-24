@@ -1,7 +1,8 @@
-from subprocess import call
+from subprocess import run
 import os
 import shutil
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Union
+from  pathlib import Path
 
 from dogebuild.plugins import DogePlugin
 from dogebuild.common import files
@@ -11,7 +12,20 @@ from dogebuild_c.gcc_wrapper import GccWrapper, BinaryType
 class CPlugin(DogePlugin):
     NAME = 'c-plugin'
 
-    def __init__(self, **kwargs):
+    def __init__(
+            self,
+            *,
+            src: List[Union[Path, str]],
+            headers: List[Union[Path, str]] = None,
+            binary_type: BinaryType = BinaryType.STATIC_LIBRARY,
+            out_name: str = 'a',
+            build_dir: Union[Path, str] = Path('build'),
+            test_src: List[Union[Path, str]] = None,
+            test_headers: List[Union[Path, str]] = None,
+            test_out_name: str = 'test',
+            test_build_dir: Union[Path, str] = Path('test_build'),
+            test_src_exclude: List[Union[Path, str]] = None,
+    ):
         super(CPlugin, self).__init__()
 
         self.gcc = GccWrapper()
@@ -22,22 +36,19 @@ class CPlugin(DogePlugin):
         self.add_task(self.run, phase='run', depends=['link'])
         self.add_task(self.clean, phase='clean')
 
-        self.src_dir = kwargs.get('src_dir', 'src')
-        self.src = files(self.src_dir, kwargs.get('src', []), kwargs.get('src_exclude'))
-        self.headers = files(self.src_dir, kwargs.get('headers', []), kwargs.get('headers_exclude'))
-        self.out = kwargs.get('out', 'a')
-        self.out_file = None
-        self.type = kwargs.get('type', BinaryType.STATIC_LIBRARY)
-        self.build_dir = kwargs.get('build_dir', 'build')
+        self.src = list(map(Path, src))
+        self.headers = list(map(Path, headers if headers is not None else []))
+        self.binary_type = binary_type
+        self.out_name = out_name
+        self.build_dir = Path(build_dir)
 
-        self.test_src_dir = kwargs.get('test_src_dir', 'test')
-        self.test_main_exclude = files(self.src_dir, kwargs.get('test_main_exclude', []))
-        self.test_src = files(self.test_src_dir, kwargs.get('test_src', []), kwargs.get('test_src_exclude'))
-        self.test_headers = files(self.test_src_dir, kwargs.get('test_headers', []), kwargs.get('test_headers_exclude'))
-        self.test_out = kwargs.get('test_out', 'test')
-        self.test_build_dir = kwargs.get('test_build_dir', 'test_build')
+        self.test_src = list(map(Path, test_src if test_src is not None else []))
+        self.test_headers = list(map(Path, test_headers if test_headers is not None else []))
+        self.test_out_name = test_out_name
+        self.test_build_dir = Path(test_build_dir)
+        self.test_src_exclude = list(map(Path, test_src_exclude if test_src_exclude is not None else []))
 
-    def compile(self) -> Tuple[int, Dict[str, List[str]]]:
+    def compile(self) -> Tuple[int, Dict[str, List[Path]]]:
         dependencies_headers = []
         for dependency in self.dependencies + self.test_dependencies:
             dependencies_headers += map(
@@ -45,17 +56,17 @@ class CPlugin(DogePlugin):
                 dependency.artifacts.get('headers_directory', [])
             )
 
-        code, o_files = self.gcc.compile(self.build_dir, self.type, self.src, dependencies_headers)
+        code, o_files = self.gcc.compile(self.build_dir, self.binary_type, self.src, dependencies_headers)
         if code:
             return code, {}
         else:
             return 0, {'o_files': o_files}
 
-    def test(self, o_files) -> Tuple[int, Dict[str, List[str]]]:
+    def test(self, o_files) -> Tuple[int, Dict[str, List[Path]]]:
         if len(self.test_src) == 0:
             return 0, {}
 
-        self.gcc.copy_header(self.build_dir, self.headers)
+        self.gcc.copy_headers(self.build_dir, self.headers)
 
         dependencies_headers = []
         for dependency in self.dependencies + self.test_dependencies:
@@ -65,68 +76,64 @@ class CPlugin(DogePlugin):
         for dependency in self.dependencies + self.test_dependencies:
             dependencies_library += map(lambda p: os.path.join(dependency.folder, p), dependency.artifacts.get('static_library', []))
 
-        code, test_o_files = self.gcc.compile(self.test_build_dir, BinaryType.EXECUTABLE, self.test_src, [os.path.join(self.build_dir, 'headers')] + dependencies_headers)
+        code, test_o_files = self.gcc.compile(self.test_build_dir, BinaryType.EXECUTABLE, self.test_src, [self.build_dir / 'headers'] + dependencies_headers)
         if code:
             return code, {}
 
         # Fixme
         exclude_o_files = []
         for src in self.src:
-            if src in self.test_main_exclude:
-                base, extension = os.path.splitext(src)
-                if extension in GccWrapper.ALLOWED_CODE_EXTENSIONS:
-                    src = base + '.o'
-                file_path = os.path.join(self.build_dir, src)
-                exclude_o_files.append(file_path)
+            if src in self.test_src_exclude:
+                if src.suffix in GccWrapper.ALLOWED_CODE_EXTENSIONS:
+                    file_path = self.build_dir / src.with_suffix('.o')
+                    exclude_o_files.append(file_path)
 
-        code, test_out_file = self.gcc.link(self.test_build_dir, BinaryType.EXECUTABLE, self.test_out, list(set(o_files) - set(exclude_o_files)) + test_o_files, dependencies_library)
+        code, test_out_file = self.gcc.link(self.test_build_dir, BinaryType.EXECUTABLE, self.test_out_name, list(set(o_files) - set(exclude_o_files)) + test_o_files, dependencies_library)
         if code:
             return code, {}
 
-        return call([test_out_file]), {'test_executable': [test_out_file]}
+        result = run([str(test_out_file)])
+        return result.returncode, {'test_executable': [test_out_file]}
 
-    def link(self) -> Tuple[int, Dict[str, List[str]]]:
+    def link(self, o_files) -> Tuple[int, Dict[str, List[Path]]]:
         libs = []
-        if self.type is BinaryType.EXECUTABLE:
+        if self.binary_type is BinaryType.EXECUTABLE:
             for dependency in self.dependencies + self.test_dependencies:
                 libs += map(
                     lambda p: os.path.join(dependency.folder, p),
                     dependency.artifacts.get('static_library', [])
                 )
 
-        code, out_file = self.gcc.link(self.build_dir, self.type, self.out, self.o_files, libs)
+        code, out_file = self.gcc.link(self.build_dir, self.binary_type, self.out_name, o_files, libs)
         if code:
             return code, {}
 
-        self.out_file = out_file
+        if self.binary_type in [BinaryType.STATIC_LIBRARY, BinaryType.DYNAMIC_LIBRARY]:
+            self.gcc.copy_headers(self.build_dir, self.headers)
 
-        headers_directory = []
-        if self.type in [BinaryType.STATIC_LIBRARY, BinaryType.DYNAMIC_LIBRARY]:
-            _, headers_directory = self.gcc.copy_header(self.build_dir, self.headers)
-
-        if self.type is BinaryType.EXECUTABLE:
+        if self.binary_type is BinaryType.EXECUTABLE:
             artifact = {'executable': [out_file]}
-        elif self.type is BinaryType.STATIC_LIBRARY:
+        elif self.binary_type is BinaryType.STATIC_LIBRARY:
             artifact = {'static_library': [out_file]}
-        elif self.type is BinaryType.DYNAMIC_LIBRARY:
+        elif self.binary_type is BinaryType.DYNAMIC_LIBRARY:
             artifact = {'dynamic_library': [out_file]}
         else:
             raise NotImplementedError()
 
-        return 0, dict(artifact, headers_directory=[headers_directory])
+        return 0, dict(artifact, headers_directory=[self.build_dir / 'headers'])
 
-    def run(self, executable) -> Tuple[int, Dict[str, List[str]]]:
-        if self.type is BinaryType.EXECUTABLE:
-            command = [self.out_file]
-            return call(command), {'executable': [self.out_file]}
+    def run(self, executable) -> Tuple[int, Dict[str, List[Path]]]:
+        if self.binary_type is BinaryType.EXECUTABLE:
+            result = run([str(executable[0])])
+            return result.returncode, {}
         else:
-            self.logger.warning('Type {} is not executable'.format(self.type))
+            self.logger.warning(f'Type {self.binary_type} is not executable')
             return 0, {}
 
     def clean(self) -> Tuple[int, Dict[str, List[str]]]:
-        if os.path.exists(self.build_dir):
+        if self.build_dir.exists() and self.build_dir.is_dir():
             shutil.rmtree(self.build_dir)
-        if os.path.exists(self.test_build_dir):
+        if self.test_build_dir.exists() and self.test_build_dir.is_dir():
             shutil.rmtree(self.test_build_dir)
 
         return 0, {}

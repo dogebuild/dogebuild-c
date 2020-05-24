@@ -6,9 +6,8 @@ dependencies(
 )
 
 CPlugin(
-    type=BinaryType.EXECUTABLE,
-    out='hello',
-    src_dir='.',
+    binary_type=BinaryType.EXECUTABLE,
+    out_name='hello',
     src=[
         'main.c',
     ],
