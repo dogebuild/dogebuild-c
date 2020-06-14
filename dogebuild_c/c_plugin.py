@@ -26,7 +26,7 @@ class CPlugin(DogePlugin):
             test_build_dir: Union[Path, str] = Path('test_build'),
             test_src_exclude: List[Union[Path, str]] = None,
     ):
-        super(CPlugin, self).__init__()
+        super(CPlugin, self).__init__(artifacts_to_publish=CPlugin.binary_type_to_artifacts_list(binary_type))
 
         self.gcc = GccWrapper()
 
@@ -48,35 +48,19 @@ class CPlugin(DogePlugin):
         self.test_build_dir = Path(test_build_dir)
         self.test_src_exclude = list(map(Path, test_src_exclude if test_src_exclude is not None else []))
 
-    def compile(self) -> Tuple[int, Dict[str, List[Path]]]:
-        dependencies_headers = []
-        for dependency in self.dependencies + self.test_dependencies:
-            dependencies_headers += map(
-                lambda p: os.path.join(dependency.folder, p),
-                dependency.artifacts.get('headers_directory', [])
-            )
-
-        code, o_files = self.gcc.compile(self.build_dir, self.binary_type, self.src, dependencies_headers)
+    def compile(self, headers_directory) -> Tuple[int, Dict[str, List[Path]]]:
+        code, o_files = self.gcc.compile(self.build_dir, self.binary_type, self.src, headers_directory)
         if code:
             return code, {}
         else:
             return 0, {'o_files': o_files}
 
-    def test(self, o_files) -> Tuple[int, Dict[str, List[Path]]]:
+    def test(self, o_files, headers_directory, static_library) -> Tuple[int, Dict[str, List[Path]]]:
         if len(self.test_src) == 0:
             return 0, {}
 
         self.gcc.copy_headers(self.build_dir, self.headers)
-
-        dependencies_headers = []
-        for dependency in self.dependencies + self.test_dependencies:
-            dependencies_headers += map(lambda p: os.path.join(dependency.folder, p), dependency.artifacts.get('headers_directory', []))
-
-        dependencies_library = []
-        for dependency in self.dependencies + self.test_dependencies:
-            dependencies_library += map(lambda p: os.path.join(dependency.folder, p), dependency.artifacts.get('static_library', []))
-
-        code, test_o_files = self.gcc.compile(self.test_build_dir, BinaryType.EXECUTABLE, self.test_src, [self.build_dir / 'headers'] + dependencies_headers)
+        code, test_o_files = self.gcc.compile(self.test_build_dir, BinaryType.EXECUTABLE, self.test_src, [self.build_dir / 'headers'] + headers_directory)
         if code:
             return code, {}
 
@@ -88,21 +72,17 @@ class CPlugin(DogePlugin):
                     file_path = self.build_dir / src.with_suffix('.o')
                     exclude_o_files.append(file_path)
 
-        code, test_out_file = self.gcc.link(self.test_build_dir, BinaryType.EXECUTABLE, self.test_out_name, list(set(o_files) - set(exclude_o_files)) + test_o_files, dependencies_library)
+        code, test_out_file = self.gcc.link(self.test_build_dir, BinaryType.EXECUTABLE, self.test_out_name, list(set(o_files) - set(exclude_o_files)) + test_o_files, static_library)
         if code:
             return code, {}
 
         result = run([str(test_out_file)])
         return result.returncode, {'test_executable': [test_out_file]}
 
-    def link(self, o_files) -> Tuple[int, Dict[str, List[Path]]]:
+    def link(self, o_files, static_library) -> Tuple[int, Dict[str, List[Path]]]:
         libs = []
         if self.binary_type is BinaryType.EXECUTABLE:
-            for dependency in self.dependencies + self.test_dependencies:
-                libs += map(
-                    lambda p: os.path.join(dependency.folder, p),
-                    dependency.artifacts.get('static_library', [])
-                )
+            libs += static_library
 
         code, out_file = self.gcc.link(self.build_dir, self.binary_type, self.out_name, o_files, libs)
         if code:
@@ -112,15 +92,15 @@ class CPlugin(DogePlugin):
             self.gcc.copy_headers(self.build_dir, self.headers)
 
         if self.binary_type is BinaryType.EXECUTABLE:
-            artifact = {'executable': [out_file]}
+            artifact = {'executable': [out_file.resolve()]}
         elif self.binary_type is BinaryType.STATIC_LIBRARY:
-            artifact = {'static_library': [out_file]}
+            artifact = {'static_library': [out_file.resolve()]}
         elif self.binary_type is BinaryType.DYNAMIC_LIBRARY:
-            artifact = {'dynamic_library': [out_file]}
+            artifact = {'dynamic_library': [out_file.resolve()]}
         else:
             raise NotImplementedError()
 
-        return 0, dict(artifact, headers_directory=[self.build_dir / 'headers'])
+        return 0, dict(artifact, headers_directory=[(self.build_dir / 'headers').resolve()])
 
     def run(self, executable) -> Tuple[int, Dict[str, List[Path]]]:
         if self.binary_type is BinaryType.EXECUTABLE:
@@ -137,3 +117,14 @@ class CPlugin(DogePlugin):
             shutil.rmtree(self.test_build_dir)
 
         return 0, {}
+
+    @staticmethod
+    def binary_type_to_artifacts_list(binary_type: BinaryType):
+        if binary_type is BinaryType.EXECUTABLE:
+            return ["executable"]
+        elif binary_type is BinaryType.STATIC_LIBRARY:
+            return ["static_library", "headers_directory"]
+        elif binary_type is BinaryType.DYNAMIC_LIBRARY:
+            return ["dynamic_library", "headers_directory"]
+        else:
+            raise Exception(f"Unknown binary type {binary_type}")

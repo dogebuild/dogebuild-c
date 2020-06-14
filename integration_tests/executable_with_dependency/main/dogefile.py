@@ -1,8 +1,8 @@
 from dogebuild_c.c_plugin import CPlugin, BinaryType
-from dogebuild import dependencies, folder
+from dogebuild import dependencies, directory, dogedep
 
 dependencies(
-    folder('../dependency')
+    dogedep(directory('../dependency'))
 )
 
 CPlugin(
