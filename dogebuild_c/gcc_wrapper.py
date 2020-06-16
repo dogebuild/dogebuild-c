@@ -16,18 +16,20 @@ class BinaryType(Enum):
 
 class GccWrapper:
     ALLOWED_CODE_EXTENSIONS = [
-        '.c',
+        ".c",
     ]
 
     ALLOWED_HEADER_EXTENSIONS = [
-        '.h',
+        ".h",
     ]
 
     def __init__(self):
-        self.logger = getLogger('GccWrapper')
-        self.binary = 'gcc'
+        self.logger = getLogger("GccWrapper")
+        self.binary = "gcc"
 
-    def compile(self, build_dir: Path, binary_type: BinaryType, source_files: List[Path], headers_dirs: List[Path]) -> Tuple[int, List[Path]]:
+    def compile(
+        self, build_dir: Path, binary_type: BinaryType, source_files: List[Path], headers_dirs: List[Path]
+    ) -> Tuple[int, List[Path]]:
         """
         Compile all ALLOWED_CODE_EXTENSIONS files to corresponding .o files regarding directory structure
         :param build_dir: root of build directory
@@ -40,22 +42,22 @@ class GccWrapper:
 
         o_files = []
         for src in source_files:
-            command = [self.binary, '-c']
+            command = [self.binary, "-c"]
 
             for header_dir in headers_dirs:
-                command.append(f'-I{header_dir}')
+                command.append(f"-I{header_dir}")
 
             if binary_type is BinaryType.DYNAMIC_LIBRARY:
                 # Need to create macros in binary code.
                 # See https://renenyffenegger.ch/notes/development/languages/C-C-plus-plus/GCC/options/f/pic/index
-                command.append('-fPIC')
+                command.append("-fPIC")
             command.append(src)
-            command.append('-o')
+            command.append("-o")
 
             if src.suffix in GccWrapper.ALLOWED_CODE_EXTENSIONS:
-                src = src.with_suffix('.o')
+                src = src.with_suffix(".o")
             else:
-                self.logger.warning(f'Not allowed code file extension .{src.suffix} of file {src}. File ignored.')
+                self.logger.warning(f"Not allowed code file extension .{src.suffix} of file {src}. File ignored.")
 
             o_file_path = build_dir / src
             o_file_path.parent.mkdir(exist_ok=True, parents=True)
@@ -77,17 +79,19 @@ class GccWrapper:
         :param header_list: list of headers to copy
         :return: Tuple of ret
         """
-        headers_dir = build_dir / 'headers'
+        headers_dir = build_dir / "headers"
         for header in header_list:
             if header.suffix not in self.ALLOWED_HEADER_EXTENSIONS:
-                self.logger.warning(f'Not allowed header file extension {header.suffix} of file {header}')
+                self.logger.warning(f"Not allowed header file extension {header.suffix} of file {header}")
                 continue
 
             file_path = headers_dir / header
             file_path.parent.mkdir(exist_ok=True, parents=True)
             shutil.copyfile(str(header), str(file_path))
 
-    def link(self, build_dir: Path, binary_type: BinaryType, out_name: str, o_files: List[Path], libraries: List[Path]) -> Tuple[int, Path]:
+    def link(
+        self, build_dir: Path, binary_type: BinaryType, out_name: str, o_files: List[Path], libraries: List[Path]
+    ) -> Tuple[int, Path]:
         """
         Link object files with libraries to file with out_name based name
         :param build_dir:
@@ -99,19 +103,19 @@ class GccWrapper:
         """
         if binary_type is BinaryType.STATIC_LIBRARY:
             out_file = build_dir / self._resolve_out_name(binary_type, out_name)
-            command = ['ar', '-rcs', out_file, *o_files]
+            command = ["ar", "-rcs", out_file, *o_files]
             result = run(command)
             return result.returncode, out_file
 
         elif binary_type is BinaryType.DYNAMIC_LIBRARY:
             out_file = build_dir / self._resolve_out_name(binary_type, out_name)
-            command = [self.binary, '-shared', *o_files, '-o', out_file]
+            command = [self.binary, "-shared", *o_files, "-o", out_file]
             result = run(command)
             return result.returncode, out_file
 
         elif binary_type is BinaryType.EXECUTABLE:
             out_file = build_dir / self._resolve_out_name(binary_type, out_name)
-            command = [self.binary, *o_files, '-o', out_file]
+            command = [self.binary, *o_files, "-o", out_file]
 
             library_dirs = set()
             library_names = set()
@@ -120,28 +124,28 @@ class GccWrapper:
                 library_names.add(lib.name)
 
             for library_dir in library_dirs:
-                command.append(f'-L{library_dir}')
+                command.append(f"-L{library_dir}")
             for library_name in library_names:
-                command.append(f'-l:{library_name}')
+                command.append(f"-l:{library_name}")
             result = run(command)
             return result.returncode, out_file
 
         else:
-            raise NotImplementedError(f'Unknown type {binary_type}')
+            raise NotImplementedError(f"Unknown type {binary_type}")
 
     @staticmethod
     def _resolve_out_name(binary_type: BinaryType, name: str):
-        if os.name == 'posix':
+        if os.name == "posix":
             if binary_type is BinaryType.STATIC_LIBRARY:
-                return 'lib' + name + '.a'
+                return "lib" + name + ".a"
             elif binary_type is BinaryType.DYNAMIC_LIBRARY:
-                return 'lib' + name + '.so'
+                return "lib" + name + ".so"
             elif binary_type is BinaryType.EXECUTABLE:
                 return name
         else:
             if binary_type is BinaryType.STATIC_LIBRARY:
-                return 'lib' + name + '.lib'
+                return "lib" + name + ".lib"
             elif binary_type is BinaryType.DYNAMIC_LIBRARY:
-                return 'lib' + name + '.dll'
+                return "lib" + name + ".dll"
             elif binary_type is BinaryType.EXECUTABLE:
-                return name + '.exe'
+                return name + ".exe"

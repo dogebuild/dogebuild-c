@@ -9,10 +9,9 @@ class CompileTask(Task):
         self.out_file = out_file
 
     def run(self):
-        command = ['clang']
+        command = ["clang"]
         command.extend(self.input_files)
         if self.out_file:
-            command.append('--output=' + self.out_file)
+            command.append("--output=" + self.out_file)
 
         check_call(command)
-
