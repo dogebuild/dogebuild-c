@@ -23,9 +23,10 @@ FLAKE8_IGNORE = [
     "directory",
     ["simple_static_library", "simple_dinamic_library", "simple_executable", "executable_with_dependency/main",],
 )
-def tests(session, directory):
+@nox.parametrize("doge_version", ["0.3.1"])
+def tests(session, directory, doge_version):
 
-    session.install("../dogebuild")  # Parametrize after releasing stable version of main dogebuild tool
+    session.install(f"dogebuild=={doge_version}")
     session.install(".")
 
     session.cd(os.path.join("integration_tests", directory))
