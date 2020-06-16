@@ -3,7 +3,7 @@ dist: xenial
 sudo: true
 python:
 - '3.7'
-- "3.8"
+- '3.8'
 install:
 - python setup.py install
 before_script:
@@ -22,9 +22,9 @@ jobs:
     script: skip
     deploy:
       provider: pypi
-      user: kirillsulim
+      username: '__token__'
       password:
-        secure: "CXpIZ+3DeJzp+bs5hGt9Yi4WdqQKForx3TPjDvofr+SXxPc59e8/gBFyn7/hQtEkeZXnMW6TqaEivxJLsMm8C+5Fz+ZeqK9hogSJnuk4vLPzQAWAHRUPqjWYRlsOZ/NDIm+w5p2WMrcWDw4sLhE5hQ8XwdflpUoE4fkA6NOtDdffwVA03XvAzffFCT4wX/zWxvPkpCjzbyPT/pVIjhgtF/pW7gyRT1olI96R7rwGjqLu24KFqlzECnmqAO5eg80zav6QAsNos+nUWbqvEfYdt8MGVAibTB9bqRjfR6PnT/02WQ8tHKthArqnlQxeUr/30rUKtP57NtvvgEPrOoBYVAZiEbTXjT+ZOBMchKqhPRgu+toMsoO9ODsfEuKbB3ONQPyxna00sL/IZqhzzjza/FlJ6iUVTaJYG978NtTe+jEYDBJqfoCmfrIXXzAeE3Q8sh3bH1BCoJ7z6nySG5OjXrxL0GZfEhInBZoczFI5JH52iWnbQM1NWpAGcramKW/fdi9iDLuS6Kiq0hU3fjRSudalDyu5hl+CvH5hzNGxvoYwZe3JEJWsPY3jYWwLtVmJuz4iLKSOzr5K6SKCn7+JlXvfb9r+yvQAR2UIv2iF9bqCp0gn9lw7HsIYcPv+avUZPucfUfjbPM8FpF0G0JZgxfVpPU3tSn7lvKs1/LFoOIU="
+        secure: dw5ui+bslvs6Ni2XOtQabGBhlIArAG5Qutn9Z39QbKjiWbmnMvngOErb7cUoeax9X5OQ2VLCj6cmq9qO2X8rNPYr56pV1fV4vodOa5bI31DLsOtkakHzsyUP4liq8LuvgbxSpwv+K/YVehZoaPYsvyYIyFLwjI5vh3Rt2Fu+5ZjFMUi26XRldmjwb8RusFZAJ6uQied5VTGktqkUItDMrvN9VAKrTW0drGKd5/J/iU0Rlyl20F79SbdeV1cG2Ei1jTbcjbnt9JztSF6u2XGPUzj6mqMRTZ7KEBQaOGahUN6jAi2/pTCpNuCy+dmP9U/fQuCLiaS0VknRAnuSddbrCeYUI1qmtRf39AkFNdzy6neg1dM6GSLfAHrMPPRWk0/juPcLGE7gNDccnIwvIElxv9f8nWZeCbebNWoQL5lWL/bowRon1IvDPOvKSb5SJKPLfnukZOmdzyXvcgQeRPi46OOuW3Ndtf2rC3/7qw9Yy0i+RnAYKduG4TR5j7J4wy+ZTPK8F6x4pklfwI9KxThVymo60ES4hWkfQycDM5vkMC5cJ3MDgwuyJ+8+ZkKDJAjJutg+hwTZLfFMhlRr4II9iGEvstNerYMjWeNcnYH/2SP+EwzgVD1/Y9n7df2We5rsG9Be+9LHca45Hogn6IkcA8LDZ14Gz869u8TNRS2EtvY=
       on:
         distributions: sdist bdist_wheel
         repo: dogebuild/dogebuild-c
