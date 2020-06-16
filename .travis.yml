@@ -1,0 +1,30 @@
+language: python
+dist: xenial
+sudo: true
+python:
+- '3.7'
+- "3.8"
+install:
+- python setup.py install
+before_script:
+- pip install nox
+script:
+- nox
+stages:
+- test
+- name: deploy
+  if: branch = master
+jobs:
+  include:
+  - stage: test
+  - stage: deploy
+    python: '3.7'
+    script: skip
+    deploy:
+      provider: pypi
+      user: kirillsulim
+      password:
+        secure: "LncfIbtlq0o9SVW+jdsGnjtIjGgxXKOvqNaCXHF4jnOSu1sTFc4h6eedCJ2yDKRUx9v1IU3cpdVn4/lT93UOKfjLZnpvcZPbXCXlVz9dCkeEecpKX1mMML1MJ6NJZTwdWOnc8RxMer1P3uMCNnOhmjDDpQGizTuf9qUBuvekuvRbbpcAh9vh3zDXIePi0h+W1YImCvAL2yiRhwX1C05iVm82MnP71IyIrS4/pDSuE0eN6NzUC7GkeqWh8qLn9OqL+ZZaxMz788DSbzslgn8C4et/lB/MaiCp36N3g/1MBPNSdY90pTPUf64cc9eS4G1HxCRT11V4HsRQrWkhyxtfMlPHxudmn6SP8nCjfxusLxE8AC0kIiaL9J9mCGdRGzxtzKaYSxXf0gV+328/NKfYseoMy4C6P9pRVXlOn/PyKyC9TM9RSc9EdNueotS39irkGyUyuw5iJCVebIMyumfp+VEj17KcJ7TyqZBVHD2kOcr8Kpp2RGOFrceOucbITYZvnjuwKZu/qOH+s6xvpqOOi0C4SyJVuyCgieisIzcgoHdYGlN80UxueYdzrwjd8P6ustOLNpopAnmmuN7NKVZY5erV+nOoUM8cXGjzruL+eD0jMoPx2HuSNXBeFjDbbi5lUt6PB1Fffh5WqJXH3b7EpoYM/DRO7VPbXRo8QYL4kQE="
+      on:
+        distributions: sdist bdist_wheel
+        repo: dogebuild/dogebuild-c

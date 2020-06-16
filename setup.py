@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="dogebuild-c",
-    version="0.1.0.dev1",
+    version="0.1.0",
     description="C language dogebuild plugin",
     author="Kirill Sulim",
     author_email="kirillsulim@gmail.com",
