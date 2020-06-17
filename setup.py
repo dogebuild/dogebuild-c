@@ -1,9 +1,21 @@
+from os import path
 from setuptools import setup, find_packages
+
+
+project_directory = path.abspath(path.dirname(__file__))
+
+
+def load_from(file_name):
+    with open(path.join(project_directory, file_name), encoding="utf-8") as f:
+        return f.read()
+
 
 setup(
     name="dogebuild-c",
-    version="0.1.0",
+    version=load_from("dogebuild_c/dogebuild_c.version").strip(),
     description="C language dogebuild plugin",
+    long_description=load_from("README.md"),
+    long_description_content_type="text/markdown",
     author="Kirill Sulim",
     author_email="kirillsulim@gmail.com",
     license="MIT",
