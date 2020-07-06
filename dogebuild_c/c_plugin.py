@@ -15,6 +15,7 @@ class CPlugin(DogePlugin):
         *,
         src: List[Union[Path, str]],
         headers: List[Union[Path, str]] = None,
+        src_dir: Union[Path, str] = "src",
         binary_type: BinaryType = BinaryType.STATIC_LIBRARY,
         out_name: str = "a",
         build_dir: Union[Path, str] = Path("build"),
@@ -34,17 +35,20 @@ class CPlugin(DogePlugin):
         self.add_task(self.run, phase="run", depends=["link"])
         self.add_task(self.clean, phase="clean")
 
-        self.src = list(map(Path, src))
-        self.headers = list(map(Path, headers if headers is not None else []))
+        self.src = list(map(lambda x: Path(x).resolve(), src))
+        self.headers = list(map(lambda x: Path(x).resolve(), headers if headers is not None else []))
+        self.src_dir = Path(src_dir).resolve()
         self.binary_type = binary_type
         self.out_name = out_name
         self.build_dir = Path(build_dir)
 
-        self.test_src = list(map(Path, test_src if test_src is not None else []))
-        self.test_headers = list(map(Path, test_headers if test_headers is not None else []))
+        self.test_src = list(map(lambda x: Path(x).resolve(), test_src if test_src is not None else []))
+        self.test_headers = list(map(lambda x: Path(x).resolve(), test_headers if test_headers is not None else []))
         self.test_out_name = test_out_name
-        self.test_build_dir = Path(test_build_dir)
-        self.test_src_exclude = list(map(Path, test_src_exclude if test_src_exclude is not None else []))
+        self.test_build_dir = Path(test_build_dir).resolve()
+        self.test_src_exclude = list(
+            map(lambda x: Path(x).resolve(), test_src_exclude if test_src_exclude is not None else [])
+        )
 
     def compile(self, headers_directory) -> Tuple[int, Dict[str, List[Path]]]:
         code, o_files = self.gcc.compile(self.build_dir, self.binary_type, self.src, headers_directory)
@@ -57,7 +61,7 @@ class CPlugin(DogePlugin):
         if len(self.test_src) == 0:
             return 0, {}
 
-        self.gcc.copy_headers(self.build_dir, self.headers)
+        self.gcc.copy_headers(self.src_dir, self.headers, self.build_dir)
         code, test_o_files = self.gcc.compile(
             self.test_build_dir, BinaryType.EXECUTABLE, self.test_src, [self.build_dir / "headers"] + headers_directory
         )
@@ -95,7 +99,7 @@ class CPlugin(DogePlugin):
             return code, {}
 
         if self.binary_type in [BinaryType.STATIC_LIBRARY, BinaryType.DYNAMIC_LIBRARY]:
-            self.gcc.copy_headers(self.build_dir, self.headers)
+            self.gcc.copy_headers(self.src_dir, self.headers, self.build_dir)
 
         if self.binary_type is BinaryType.EXECUTABLE:
             artifact = {"executable": [out_file.resolve()]}

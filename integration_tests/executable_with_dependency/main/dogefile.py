@@ -4,5 +4,5 @@ from dogebuild import dependencies, directory, doge
 dependencies(doge(directory("../dependency")))
 
 CPlugin(
-    binary_type=BinaryType.EXECUTABLE, out_name="hello", src=["main.c",],
+    binary_type=BinaryType.EXECUTABLE, out_name="hello", src=["main.c",], src_dir=".",
 )

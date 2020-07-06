@@ -71,12 +71,13 @@ class GccWrapper:
 
         return 0, o_files
 
-    def copy_headers(self, build_dir: Path, header_list: List[Path]):
+    def copy_headers(self, src_dir: Path, header_list: List[Path], build_dir: Path):
         """
         Copy headers with ALLOWED_HEADER_EXTENSIONS to build_dir subdirectory 'headers'.
         Useful when building libraries
-        :param build_dir: build directory
+        :param src_dir: root of headers src directory
         :param header_list: list of headers to copy
+        :param build_dir: build directory
         :return: Tuple of ret
         """
         headers_dir = build_dir / "headers"
@@ -85,7 +86,7 @@ class GccWrapper:
                 self.logger.warning(f"Not allowed header file extension {header.suffix} of file {header}")
                 continue
 
-            file_path = headers_dir / header
+            file_path = headers_dir / header.relative_to(src_dir)
             file_path.parent.mkdir(exist_ok=True, parents=True)
             shutil.copyfile(str(header), str(file_path))
 
