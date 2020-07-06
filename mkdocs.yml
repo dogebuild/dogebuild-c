@@ -5,3 +5,4 @@ markdown_extensions:
       permalink: True
 nav:
   - Quick start: index.md
+  - Multimodule project: multiodule-project.md
