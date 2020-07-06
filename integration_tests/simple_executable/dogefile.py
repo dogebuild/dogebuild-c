@@ -10,4 +10,5 @@ CPlugin(
     headers=[Path("helloworlder.h"),],
     test_src=[Path("test.c"),],
     test_src_exclude=[Path("main.c"),],
+    src_dir=".",
 )

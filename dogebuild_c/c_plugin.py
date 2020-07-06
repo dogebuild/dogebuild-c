@@ -15,7 +15,7 @@ class CPlugin(DogePlugin):
         *,
         src: List[Union[Path, str]],
         headers: List[Union[Path, str]] = None,
-        src_dir: Union[Path, str] = 'src',
+        src_dir: Union[Path, str] = "src",
         binary_type: BinaryType = BinaryType.STATIC_LIBRARY,
         out_name: str = "a",
         build_dir: Union[Path, str] = Path("build"),
@@ -46,7 +46,9 @@ class CPlugin(DogePlugin):
         self.test_headers = list(map(lambda x: Path(x).resolve(), test_headers if test_headers is not None else []))
         self.test_out_name = test_out_name
         self.test_build_dir = Path(test_build_dir).resolve()
-        self.test_src_exclude = list(map(lambda x: Path(x).resolve(), test_src_exclude if test_src_exclude is not None else []))
+        self.test_src_exclude = list(
+            map(lambda x: Path(x).resolve(), test_src_exclude if test_src_exclude is not None else [])
+        )
 
     def compile(self, headers_directory) -> Tuple[int, Dict[str, List[Path]]]:
         code, o_files = self.gcc.compile(self.build_dir, self.binary_type, self.src, headers_directory)

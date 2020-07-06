@@ -6,4 +6,5 @@ CPlugin(
     src=["helloworlder.c",],
     headers=["helloworlder.h",],
     test_src=["test.c",],
+    src_dir=".",
 )
